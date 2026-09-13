@@ -3,19 +3,23 @@
  * A minimal, from-scratch replacement for the discontinued "Token Aura Rings"
  * module, rebuilt for Foundry VTT v14.
  *
- * v1.1.0
+ * v1.2.0
  * - Any number of rings per token (add/remove in the config dialog)
  * - Per ring: radius (scene distance units, measured from the token's edge
- *   outward), color, line width, line opacity, optional fill + fill opacity
+ *   outward), color, line width, line opacity, optional fill + fill opacity,
+ *   GM-only visibility
  * - Configured via a button on the Token HUD (same extension point already
  *   used by Shiny's Custom Status Effects)
+ * - Config dialog: collapsible ring cards laid out in a wrapping grid, a
+ *   scrollable list so the Save/Cancel buttons stay reachable with many
+ *   rings, and a live preview on the canvas while editing
  * - Rings are drawn as a child of the token's own PIXI container, so
  *   Foundry's normal visibility/fog-of-war handling for the token
  *   automatically applies to the rings too (no extra visibility logic
  *   needed)
  * - Whole script is wrapped in an IIFE so its top-level consts don't collide
  *   with other classic (non-ESM) module scripts sharing the same global
- *   scope (this bit us once already — see README)
+ *   scope (this bit us once already, see README)
  */
 
 (() => {
@@ -31,7 +35,8 @@ const DEFAULT_RING = {
   width: 3,
   lineOpacity: 1,
   fill: false,
-  fillOpacity: 0.35
+  fillOpacity: 0.35,
+  gmOnly: false
 };
 
 Hooks.once("init", () => {
@@ -76,7 +81,9 @@ function drawAuraRings(token) {
   const gfx = token.auraRingGraphics;
   gfx.clear();
 
-  const auras = getAuras(token.document);
+  // A dialog that's currently open for this token can push an unsaved
+  // preview here; use that instead of the persisted flags while it exists.
+  const auras = token._auraRingPreview ?? getAuras(token.document);
   if (!auras.length) return;
 
   const ppu = pixelsPerUnit();
@@ -86,6 +93,7 @@ function drawAuraRings(token) {
 
   for (const aura of auras) {
     if (!aura.enabled || !aura.radius) continue;
+    if (aura.gmOnly && !game.user.isGM) continue;
 
     const outerRadius = baseRadius + (Number(aura.radius) * ppu);
 
@@ -147,39 +155,64 @@ Hooks.on("renderTokenHUD", (hud, html) => {
 
 function ringRowTemplate(aura, label, units) {
   return `
-    <fieldset class="aura-ring-row">
-      <legend>${label}</legend>
-      <button type="button" class="remove-ring" title="Remove this ring">&times;</button>
-      <div class="form-group">
-        <label>Enabled</label>
-        <div class="form-fields"><input type="checkbox" data-field="enabled" ${aura.enabled ? "checked" : ""}></div>
+    <details class="aura-ring-row" open>
+      <summary>
+        <span class="ring-title">${label}</span>
+        <button type="button" class="remove-ring" title="Remove this ring">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </summary>
+      <div class="ring-body">
+        <div class="form-group">
+          <label>Enabled</label>
+          <div class="form-fields"><input type="checkbox" data-field="enabled" ${aura.enabled ? "checked" : ""}></div>
+        </div>
+        <div class="form-group">
+          <label>GM only</label>
+          <div class="form-fields"><input type="checkbox" data-field="gmOnly" ${aura.gmOnly ? "checked" : ""}></div>
+        </div>
+        <div class="form-group">
+          <label>Radius (${units})</label>
+          <div class="form-fields"><input type="number" data-field="radius" value="${aura.radius}" step="1"></div>
+        </div>
+        <div class="form-group">
+          <label>Color</label>
+          <div class="form-fields"><input type="color" data-field="color" value="${aura.color}"></div>
+        </div>
+        <div class="form-group">
+          <label>Line width (px)</label>
+          <div class="form-fields"><input type="number" data-field="width" value="${aura.width}" min="1" step="1"></div>
+        </div>
+        <div class="form-group">
+          <label>Line opacity</label>
+          <div class="form-fields"><input type="range" data-field="lineOpacity" min="0" max="1" step="0.05" value="${aura.lineOpacity}"></div>
+        </div>
+        <div class="form-group">
+          <label>Fill</label>
+          <div class="form-fields"><input type="checkbox" data-field="fill" ${aura.fill ? "checked" : ""}></div>
+        </div>
+        <div class="form-group">
+          <label>Fill opacity</label>
+          <div class="form-fields"><input type="range" data-field="fillOpacity" min="0" max="1" step="0.05" value="${aura.fillOpacity}"></div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>Radius (${units})</label>
-        <div class="form-fields"><input type="number" data-field="radius" value="${aura.radius}" step="1"></div>
-      </div>
-      <div class="form-group">
-        <label>Color</label>
-        <div class="form-fields"><input type="color" data-field="color" value="${aura.color}"></div>
-      </div>
-      <div class="form-group">
-        <label>Line width (px)</label>
-        <div class="form-fields"><input type="number" data-field="width" value="${aura.width}" min="1" step="1"></div>
-      </div>
-      <div class="form-group">
-        <label>Line opacity</label>
-        <div class="form-fields"><input type="range" data-field="lineOpacity" min="0" max="1" step="0.05" value="${aura.lineOpacity}"></div>
-      </div>
-      <div class="form-group">
-        <label>Fill</label>
-        <div class="form-fields"><input type="checkbox" data-field="fill" ${aura.fill ? "checked" : ""}></div>
-      </div>
-      <div class="form-group">
-        <label>Fill opacity</label>
-        <div class="form-fields"><input type="range" data-field="fillOpacity" min="0" max="1" step="0.05" value="${aura.fillOpacity}"></div>
-      </div>
-    </fieldset>
+    </details>
   `;
+}
+
+/** Reads the current, unsaved state of every ring row in the dialog form. */
+function readRowsAsAuras(form) {
+  const rows = form.querySelectorAll(".aura-ring-row");
+  return Array.from(rows).map((row) => ({
+    enabled: row.querySelector('[data-field="enabled"]').checked,
+    gmOnly: row.querySelector('[data-field="gmOnly"]').checked,
+    radius: Number(row.querySelector('[data-field="radius"]').value) || 0,
+    color: row.querySelector('[data-field="color"]').value,
+    width: Number(row.querySelector('[data-field="width"]').value) || 1,
+    lineOpacity: Number(row.querySelector('[data-field="lineOpacity"]').value),
+    fill: row.querySelector('[data-field="fill"]').checked,
+    fillOpacity: Number(row.querySelector('[data-field="fillOpacity"]').value)
+  }));
 }
 
 async function openAuraRingsDialog(token) {
@@ -188,6 +221,12 @@ async function openAuraRingsDialog(token) {
   const units = canvas.scene?.grid?.units || "";
 
   let ringCount = initial.length;
+  let dialogInstance = null;
+
+  const clearPreview = () => {
+    delete token._auraRingPreview;
+    drawAuraRings(token);
+  };
 
   const content = `
     <form class="shinys-aura-ring-form">
@@ -199,23 +238,52 @@ async function openAuraRingsDialog(token) {
   `;
 
   await foundry.applications.api.DialogV2.wait({
-    window: { title: `Aura Rings — ${token.document.name}` },
+    window: { title: `Aura Rings: ${token.document.name}` },
+    position: { width: 640 },
     content,
     render: (event, dialog) => {
+      dialogInstance = dialog;
       const root = dialog.element;
+      const form = root.querySelector(".shinys-aura-ring-form");
       const list = root.querySelector("#shinys-aura-rings-list");
+
+      const updatePreview = () => {
+        token._auraRingPreview = readRowsAsAuras(form);
+        drawAuraRings(token);
+      };
 
       // Event delegation: handles both the initial rows and any rows
       // added later, without needing to (re)bind listeners per row.
       root.addEventListener("click", (ev) => {
-        if (ev.target.closest(".remove-ring")) {
-          ev.target.closest(".aura-ring-row")?.remove();
-        } else if (ev.target.closest("#shinys-add-ring")) {
+        const removeBtn = ev.target.closest(".remove-ring");
+        const addBtn = ev.target.closest("#shinys-add-ring");
+
+        if (removeBtn) {
+          // Stop the parent <summary> from also toggling open/closed.
+          ev.preventDefault();
+          removeBtn.closest(".aura-ring-row")?.remove();
+          updatePreview();
+        } else if (addBtn) {
           ringCount += 1;
           const wrapper = document.createElement("div");
           wrapper.innerHTML = ringRowTemplate(foundry.utils.deepClone(DEFAULT_RING), `Ring ${ringCount}`, units);
           list.appendChild(wrapper.firstElementChild);
+          updatePreview();
         }
+      });
+
+      // Live preview: redraw on the canvas as soon as any field changes.
+      root.addEventListener("input", updatePreview);
+
+      // Initial preview matches the persisted state, so nothing visibly
+      // changes until the user actually edits something.
+      updatePreview();
+
+      // However the dialog closes (Save, Cancel, Escape, the X button),
+      // drop the preview override so refreshToken falls back to the real,
+      // persisted flags again.
+      Hooks.once("closeDialogV2", (app) => {
+        if (app === dialogInstance) clearPreview();
       });
     },
     buttons: [
@@ -225,27 +293,19 @@ async function openAuraRingsDialog(token) {
         icon: "fa-solid fa-check",
         default: true,
         callback: async (event, button) => {
-          const rows = button.form.querySelectorAll(".aura-ring-row");
-          const auras = Array.from(rows).map((row) => ({
-            enabled: row.querySelector('[data-field="enabled"]').checked,
-            radius: Number(row.querySelector('[data-field="radius"]').value) || 0,
-            color: row.querySelector('[data-field="color"]').value,
-            width: Number(row.querySelector('[data-field="width"]').value) || 1,
-            lineOpacity: Number(row.querySelector('[data-field="lineOpacity"]').value),
-            fill: row.querySelector('[data-field="fill"]').checked,
-            fillOpacity: Number(row.querySelector('[data-field="fillOpacity"]').value)
-          }));
-
+          const auras = readRowsAsAuras(button.form);
           await token.document.setFlag(MODULE_ID, FLAG_KEY, auras);
           if (token.document.getFlag(MODULE_ID, LEGACY_FLAG_KEY) !== undefined) {
             await token.document.unsetFlag(MODULE_ID, LEGACY_FLAG_KEY);
           }
+          clearPreview();
         }
       },
       {
         action: "cancel",
         label: "Cancel",
-        icon: "fa-solid fa-xmark"
+        icon: "fa-solid fa-xmark",
+        callback: () => clearPreview()
       }
     ]
   });
