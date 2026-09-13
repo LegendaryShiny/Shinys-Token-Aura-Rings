@@ -3,7 +3,7 @@
  * A minimal, from-scratch replacement for the discontinued "Token Aura Rings"
  * module, rebuilt for Foundry VTT v14.
  *
- * v1.3.2
+ * v1.3.3
  * - Any number of rings per token (add/remove in the config dialog), dialog
  *   starts with zero rings until you click "Add Ring"
  * - Per ring: radius (scene distance units, measured from the token's edge
@@ -163,6 +163,13 @@ function injectStyles() {
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
+});
+
+// Injected on "ready" rather than "init": Foundry's own core/theme CSS can
+// still be settling during init/setup, and whichever same-specificity rule
+// loads LAST wins cascade ties. "ready" fires after the game and its UI
+// chrome have fully booted, so our tag ends up last in <head> and wins.
+Hooks.once("ready", () => {
   injectStyles();
 });
 
@@ -276,12 +283,41 @@ Hooks.on("renderTokenHUD", (hud, html) => {
 /*  Config dialog                                */
 /* -------------------------------------------- */
 
+// Layout-critical rules are inlined directly on the elements below (not
+// left to the stylesheet/injected <style>) because Foundry's own core CSS
+// has repeatedly won cascade ties against both of those in testing (grid
+// columns and card borders silently not applying). Inline style beats any
+// normal external rule regardless of load order, so this is the version
+// that's actually guaranteed to render as designed.
 function ringRowTemplate(aura, label, units) {
+  const rowStyle = [
+    "flex: 0 0 calc(50% - 6px)",
+    "box-sizing: border-box",
+    "border: 1px solid #782e22",
+    "border-radius: 4px",
+    "background: rgba(0,0,0,0.15)",
+    "padding: 0 0.75em 0.5em",
+    "margin: 0"
+  ].join("; ");
+
+  const summaryStyle = "list-style: none; cursor: pointer; padding: 0.5em 0;";
+  const summaryRowStyle = "display: flex; align-items: center; justify-content: space-between; gap: 0.5em;";
+  const expandChipStyle = [
+    "display: inline-flex",
+    "align-items: center",
+    "gap: 0.35em",
+    "padding: 0.3em 0.6em",
+    "border: 1px solid #782e22",
+    "border-radius: 4px",
+    "background: rgba(255,255,255,0.06)",
+    "font-weight: bold"
+  ].join("; ");
+
   return `
-    <details class="aura-ring-row">
-      <summary>
-        <div class="summary-row">
-          <span class="ring-title"><span class="chevron">&#9656;</span> ${label}</span>
+    <details class="aura-ring-row" style="${rowStyle}">
+      <summary style="${summaryStyle}">
+        <div class="summary-row" style="${summaryRowStyle}">
+          <span class="ring-title" style="${expandChipStyle}"><span class="chevron">&#9656;</span> ${label}</span>
           <button type="button" class="remove-ring" title="Remove this ring">
             <i class="fa-solid fa-trash"></i> Remove Ring
           </button>
@@ -352,12 +388,23 @@ async function openAuraRingsDialog(token) {
     drawAuraRings(token);
   };
 
+  const listStyle = [
+    "display: flex",
+    "flex-wrap: wrap",
+    "align-content: flex-start",
+    "gap: 0.75em",
+    "max-height: 55vh",
+    "overflow-y: auto",
+    "padding: 4px 4px 4px 0",
+    "margin-bottom: 0.5em"
+  ].join("; ");
+
   const content = `
-    <form class="shinys-aura-ring-form">
-      <div id="shinys-aura-rings-list">
+    <form class="shinys-aura-ring-form" style="width: 660px; max-width: 90vw;">
+      <div id="shinys-aura-rings-list" style="${listStyle}">
         ${initial.map((a, i) => ringRowTemplate(a, `Ring ${i + 1}`, units)).join("")}
       </div>
-      <p class="shinys-aura-rings-empty" ${initial.length ? 'hidden' : ''}>No rings yet, click "Add Ring" below.</p>
+      <p class="shinys-aura-rings-empty" style="text-align:center; opacity:0.7; margin: 0.5em 0 1em; ${initial.length ? 'display:none;' : ''}">No rings yet, click "Add Ring" below.</p>
       <button type="button" id="shinys-add-ring"><i class="fa-solid fa-plus"></i> Add Ring</button>
     </form>
   `;
@@ -385,7 +432,12 @@ async function openAuraRingsDialog(token) {
         token._auraRingPreview = readRowsAsAuras(form);
         drawAuraRings(token);
         const emptyNotice = root.querySelector(".shinys-aura-rings-empty");
-        if (emptyNotice) emptyNotice.hidden = list.querySelectorAll(".aura-ring-row").length > 0;
+        if (emptyNotice) {
+          // Direct inline style, not the `hidden` attribute: Foundry's own
+          // CSS resets `display` on plain elements broadly enough that it
+          // can beat the UA stylesheet's `[hidden]{display:none}` rule.
+          emptyNotice.style.display = list.querySelectorAll(".aura-ring-row").length > 0 ? "none" : "block";
+        }
       };
 
       // Event delegation: handles both the initial rows and any rows
