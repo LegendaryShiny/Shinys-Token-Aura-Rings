@@ -1,0 +1,23 @@
+.shinys-aura-ring-toggle.active i {
+  color: #ff6400;
+  text-shadow: 0 0 8px #ff6400;
+}
+
+.shinys-aura-ring-form .form-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  margin-bottom: 0.5em;
+}
+
+.shinys-aura-ring-form .form-fields {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.shinys-aura-ring-form input[type="number"],
+.shinys-aura-ring-form input[type="range"] {
+  width: 100%;
+}

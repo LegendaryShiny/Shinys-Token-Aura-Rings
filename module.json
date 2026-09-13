@@ -1,0 +1,20 @@
+{
+  "id": "shinys-token-aura-rings",
+  "title": "Shiny's Token Aura Rings",
+  "description": "Lightweight, configurable aura ring per token — a from-scratch replacement for the discontinued 'Token Aura Rings' module, built for Foundry VTT v14.",
+  "version": "1.0.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "14"
+  },
+  "authors": [
+    { "name": "Shiny" }
+  ],
+  "esmodules": [],
+  "scripts": ["scripts/shinys-token-aura-rings.js"],
+  "styles": ["styles/shinys-token-aura-rings.css"],
+  "languages": [],
+  "url": "https://github.com/LegendaryShiny/Shinys-Token-Aura-Rings",
+  "manifest": "https://raw.githubusercontent.com/LegendaryShiny/Shinys-Token-Aura-Rings/refs/heads/main/module.json",
+  "download": "https://raw.githubusercontent.com/LegendaryShiny/Shinys-Token-Aura-Rings/refs/heads/main/shinys-token-aura-rings.zip"
+}
