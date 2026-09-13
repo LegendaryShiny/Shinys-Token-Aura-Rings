@@ -15,6 +15,8 @@
  *   the ring too (no extra visibility logic needed)
  */
 
+(() => {
+
 const MODULE_ID = "shinys-token-aura-rings";
 const FLAG_KEY = "aura";
 
@@ -204,3 +206,5 @@ async function openAuraRingDialog(token) {
     ]
   });
 }
+
+})();
