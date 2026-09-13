@@ -3,12 +3,30 @@
   text-shadow: 0 0 8px #ff6400;
 }
 
+.shinys-aura-ring-form .aura-ring-row {
+  position: relative;
+  border: 1px solid var(--color-border-light-tertiary, #782e22);
+  border-radius: 4px;
+  margin-bottom: 0.75em;
+  padding: 0.5em 0.75em 0.25em;
+}
+
+.shinys-aura-ring-form .aura-ring-row .remove-ring {
+  position: absolute;
+  top: 0.25em;
+  right: 0.25em;
+  width: 1.6em;
+  height: 1.6em;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .shinys-aura-ring-form .form-group {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1em;
-  margin-bottom: 0.5em;
+  margin-bottom: 0.4em;
 }
 
 .shinys-aura-ring-form .form-fields {
@@ -20,4 +38,9 @@
 .shinys-aura-ring-form input[type="number"],
 .shinys-aura-ring-form input[type="range"] {
   width: 100%;
+}
+
+.shinys-aura-ring-form #shinys-add-ring {
+  width: 100%;
+  margin-top: 0.25em;
 }

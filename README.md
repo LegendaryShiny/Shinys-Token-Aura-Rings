@@ -1,59 +1,75 @@
 # Shiny's Token Aura Rings
 
-Eigenes, schlankes Foundry-VTT-v14-Modul als Ersatz für das nicht mehr funktionierende
-["Token Aura Ring"](https://foundryvtt.com/packages/token-aura-ring) von AnthonyEdmonds
-(zuletzt nur bis Foundry v13 verifiziert).
+A small, from-scratch Foundry VTT v14 module that replaces the discontinued
+["Token Aura Ring"](https://foundryvtt.com/packages/token-aura-ring) by
+AnthonyEdmonds (last verified for Foundry v13 only).
 
-## Funktionsumfang v1.0.0
+## Features (v1.1.0)
 
-- Ein konfigurierbarer Ring pro Token
-- Radius in Scene-Distanzeinheiten (z. B. ft), gemessen vom Tokenrand nach außen
-- Farbe, Linienbreite, optionale Füllung mit eigener Deckkraft
-- Konfiguration über einen neuen Button im Token-HUD (rechte Spalte, Ring-Icon)
-- Der Ring hängt als Kind-Objekt am Token selbst → Sichtbarkeit/Fog of War/Tokenbewegung
-  funktionieren automatisch mit, ohne zusätzliche Logik
+- Any number of rings per token — add or remove them in the config dialog
+- Per ring: radius in scene distance units (e.g. ft), measured from the
+  token's edge outward, color, line width, line opacity, optional fill with
+  its own fill opacity
+- Configured via a button on the Token HUD (right column, ring icon)
+- Rings hang off the token itself as a child object, so Foundry's normal
+  token visibility/fog-of-war/movement handling applies automatically —
+  no extra visibility logic needed
 
-Bewusst **nicht** enthalten (ggf. für v2, falls gewünscht): mehrere Ringe pro Token,
-Winkel/Bögen, rollenbasierte Sichtbarkeit ("nur GM sieht es"), Live-Vorschau während
-der Eingabe, grid-basierte Formen.
+Deliberately **not** included (candidates for a later version, if wanted):
+arcs/angles, role-based visibility ("GM only"), live preview while editing,
+grid-based shapes.
 
-## Technische Hinweise (für dich beim Debuggen)
+## Technical notes (for debugging)
 
-- Hook `refreshToken` zeichnet den Ring bei jedem Refresh neu (Position, Größe, Update) —
-  analog zu den Hook-Timing-Learnings aus dem Status-Effects-Modul, aber hier gibt es
-  laut Recherche keine bekannte Breaking Change zwischen v13 und v14 bei diesem Hook.
-- Daten liegen als Token-Flag unter `flags.shinys-token-aura-rings.aura`.
-- Radius-Umrechnung: `canvas.grid.size / canvas.scene.grid.distance` ergibt Pixel pro
-  Distanzeinheit.
-- Der Ring wird als `PIXI.Graphics` an Index 0 des Token-Containers eingefügt (unterhalb
-  der eigentlichen Token-Grafik).
-- Token-HUD-Erweiterung nutzt denselben `html?.jquery ? html[0] : html`-Trick wie dein
-  Status-Effects-Modul, falls Foundry mal jQuery, mal ein natives HTMLElement liefert.
-- Dialog nutzt `foundry.applications.api.DialogV2.wait(...)` (v13/v14-Standard-API).
+- Data is stored as a token flag: `flags.shinys-token-aura-rings.auras`
+  (an array of ring objects). Older v1.0.x installs used a single object
+  under `flags.shinys-token-aura-rings.aura` — this is read as a fallback
+  and migrated to the new array format the next time you save the dialog.
+- `refreshToken` hook redraws all rings for a token on every refresh
+  (position, size, flag updates).
+- Radius conversion: `canvas.grid.size / canvas.scene.grid.distance` gives
+  pixels per one distance unit.
+- Rings are drawn into a single `PIXI.Graphics` object inserted at index 0
+  of the token's own container (below the token artwork).
+- Token HUD extension uses the same `html?.jquery ? html[0] : html` trick
+  as the Custom Status Effects module, since Foundry sometimes hands hooks
+  jQuery and sometimes a native `HTMLElement`.
+- The config dialog uses `foundry.applications.api.DialogV2.wait(...)` with
+  its `render` callback to wire up "Add Ring" / "Remove" buttons via event
+  delegation, so newly-added rows work without re-binding listeners.
+- **Whole script is wrapped in an IIFE** (`(() => { ... })();`). This module
+  and Custom Status Effects are both loaded as plain classic `<script>`
+  tags (not ES modules) and therefore share one global scope — an earlier
+  version of this module declared `const MODULE_ID` at the top level and
+  collided with the same name in the other module, throwing
+  `Uncaught SyntaxError: Identifier 'MODULE_ID' has already been declared`
+  and silently killing the whole script. If you ever start a new Foundry
+  module from scratch, wrap it in an IIFE from the start to avoid this.
 
-**Noch nicht live getestet** — bitte wie gewohnt in einer Session ausprobieren und
-Ergebnisse zurückmelden, dann iterieren wir. Mögliche Stolpersteine, auf die ich nicht
-100% verifizieren konnte, ohne es live zu sehen:
+**Not yet live-tested in this form** — as always, try it out in a session
+and report back what breaks, then we iterate.
 
-1. Ob `.col.right` / `.col-right` in deiner Foundry-v14-Version noch die richtige Klasse
-   für die rechte HUD-Spalte ist.
-2. Ob `fa-solid fa-ring` als Font-Awesome-Icon in deiner Version verfügbar ist (sonst
-   z. B. `fa-solid fa-circle-notch` verwenden).
+## Setup / installation
 
-## Setup / Installation (gleicher Workflow wie beim Status-Effects-Modul)
+1. Create a GitHub repo (e.g. `LegendaryShiny/Shinys-Token-Aura-Rings`),
+   branch `main`.
+2. Upload these files to the repo root (`module.json`, `scripts/`,
+   `styles/`, `README.md`).
+3. If your repo owner/name differs from
+   `LegendaryShiny/Shinys-Token-Aura-Rings`, update the `url`, `manifest`
+   and `download` fields in `module.json` accordingly (both still point at
+   `raw.githubusercontent.com/.../refs/heads/main/...`).
+4. Optional: zip everything as `shinys-token-aura-rings.zip` and place it in
+   the repo root too (for the `download` link), same as the other module.
+5. Install in Foundry/Forge via the manifest URL.
+6. Enable the module, select a token, click the new ring icon in the Token
+   HUD, add/configure rings, save.
 
-1. Neues GitHub-Repo anlegen, z. B. `LegendaryShiny/Shinys-Token-Aura-Rings`, Branch `main`.
-2. Diese Dateien in den Repo-Root hochladen (`module.json`, `scripts/`, `styles/`, `README.md`).
-3. Falls dein Repo-Name/Owner von `LegendaryShiny/Shinys-Token-Aura-Rings` abweicht: die
-   `url`, `manifest` und `download`-Felder in `module.json` entsprechend anpassen (beide
-   zeigen wie gewohnt auf `raw.githubusercontent.com/.../refs/heads/main/...`).
-4. Optional: `shinys-token-aura-rings.zip` mit allen Dateien erstellen und im Repo-Root
-   ablegen (für den `download`-Link), analog zu deinem anderen Modul.
-5. In Foundry/Forge über die Manifest-URL installieren.
-6. Modul aktivieren, Token auswählen, im Token-HUD auf das neue Ring-Icon klicken,
-   Radius/Farbe einstellen, speichern.
+Whenever you push an update, remember to bump `version` in `module.json` —
+Foundry only offers an update when the manifest's version number is higher
+than the installed one.
 
-## Repo-Dateistruktur
+## Repo file structure
 
 ```
 module.json
