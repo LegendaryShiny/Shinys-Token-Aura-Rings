@@ -3,7 +3,7 @@
  * A minimal, from-scratch replacement for the discontinued "Token Aura Rings"
  * module, rebuilt for Foundry VTT v14.
  *
- * v1.3.0
+ * v1.3.1
  * - Any number of rings per token (add/remove in the config dialog), dialog
  *   starts with zero rings until you click "Add Ring"
  * - Per ring: radius (scene distance units, measured from the token's edge
@@ -41,8 +41,129 @@ const DEFAULT_RING = {
   gmOnly: false
 };
 
+const STYLE_TAG_ID = `${MODULE_ID}-styles`;
+
+/**
+ * The dialog layout (grid columns, fixed width, ring card borders) is
+ * injected here as a <style> tag instead of only relying on the external
+ * styles/*.css file. Foundry/browsers cache stylesheet files aggressively
+ * by URL, and a Forge-hosted world doesn't always pick up a freshly pushed
+ * .css file even after the module itself updates to a new version. A
+ * <style> tag created here is rebuilt from this script every time it loads
+ * (and this script *does* reliably reload on update), and because it's
+ * appended after the module's own stylesheet link, it wins any cascade tie
+ * regardless of what the cached .css contains.
+ */
+function injectStyles() {
+  document.getElementById(STYLE_TAG_ID)?.remove();
+
+  const style = document.createElement("style");
+  style.id = STYLE_TAG_ID;
+  style.textContent = `
+    .shinys-aura-ring-form {
+      width: 660px !important;
+      max-width: 90vw !important;
+    }
+    .shinys-aura-ring-form #shinys-aura-rings-list {
+      display: grid !important;
+      grid-template-columns: repeat(2, 1fr) !important;
+      align-items: start;
+      gap: 0.75em;
+      max-height: 55vh;
+      overflow-y: auto;
+      padding: 4px 4px 4px 0;
+      margin-bottom: 0.5em;
+    }
+    .shinys-aura-ring-form .shinys-aura-rings-empty {
+      text-align: center;
+      opacity: 0.7;
+      margin: 0.5em 0 1em;
+    }
+    .shinys-aura-ring-form .aura-ring-row {
+      border: 1px solid var(--color-border-light-tertiary, #782e22) !important;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.15);
+      padding: 0 0.75em 0.5em;
+    }
+    .shinys-aura-ring-form .aura-ring-row summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 0.5em 0;
+    }
+    .shinys-aura-ring-form .aura-ring-row summary::-webkit-details-marker {
+      display: none;
+    }
+    .shinys-aura-ring-form .aura-ring-row .summary-row {
+      display: flex !important;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5em;
+      font-weight: bold;
+    }
+    .shinys-aura-ring-form .aura-ring-row .ring-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .shinys-aura-ring-form .aura-ring-row .chevron {
+      display: inline-block;
+      transition: transform 0.15s ease;
+    }
+    .shinys-aura-ring-form .aura-ring-row[open] .chevron {
+      transform: rotate(90deg);
+    }
+    .shinys-aura-ring-form .aura-ring-row .remove-ring {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35em;
+      padding: 0.3em 0.6em;
+      background: rgba(120, 46, 34, 0.6);
+      border: 1px solid var(--color-border-light-tertiary, #782e22);
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      font-weight: normal;
+    }
+    .shinys-aura-ring-form .aura-ring-row .remove-ring:hover {
+      background: rgba(180, 40, 20, 0.9);
+    }
+    .shinys-aura-ring-form .ring-body {
+      padding-top: 0.25em;
+    }
+    .shinys-aura-ring-form .form-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75em;
+      margin-bottom: 0.4em;
+    }
+    .shinys-aura-ring-form .form-fields {
+      flex: 1;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .shinys-aura-ring-form input[type="number"],
+    .shinys-aura-ring-form input[type="range"] {
+      width: 100%;
+    }
+    .shinys-aura-ring-form #shinys-add-ring {
+      width: 100%;
+    }
+    .shinys-aura-ring-toggle.active i {
+      color: #ff6400;
+      text-shadow: 0 0 8px #ff6400;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
+  injectStyles();
 });
 
 /* -------------------------------------------- */
@@ -248,6 +369,11 @@ async function openAuraRingsDialog(token) {
     render: (event, dialog) => {
       dialogInstance = dialog;
       const root = dialog.element;
+
+      // Belt-and-suspenders: force the window frame itself wide via an
+      // inline style, which wins over any stylesheet (cached or not).
+      root.style.width = "680px";
+
       const form = root.querySelector(".shinys-aura-ring-form");
       const list = root.querySelector("#shinys-aura-rings-list");
       const emptyNotice = root.querySelector(".shinys-aura-rings-empty");
