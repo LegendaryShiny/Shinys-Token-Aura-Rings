@@ -3,7 +3,7 @@
  * A minimal, from-scratch replacement for the discontinued "Token Aura Rings"
  * module, rebuilt for Foundry VTT v14.
  *
- * v1.3.1
+ * v1.3.2
  * - Any number of rings per token (add/remove in the config dialog), dialog
  *   starts with zero rings until you click "Add Ring"
  * - Per ring: radius (scene distance units, measured from the token's edge
@@ -374,13 +374,17 @@ async function openAuraRingsDialog(token) {
       // inline style, which wins over any stylesheet (cached or not).
       root.style.width = "680px";
 
-      const form = root.querySelector(".shinys-aura-ring-form");
-      const list = root.querySelector("#shinys-aura-rings-list");
-      const emptyNotice = root.querySelector(".shinys-aura-rings-empty");
-
+      // Looked up fresh on every call instead of cached once here: the
+      // "render" callback can fire before the content HTML is actually
+      // attached under `root`, so a cached reference taken immediately
+      // would be null and crash every later click/input handler with it.
       const updatePreview = () => {
+        const form = root.querySelector(".shinys-aura-ring-form");
+        const list = root.querySelector("#shinys-aura-rings-list");
+        if (!form || !list) return; // not attached yet, nothing to do
         token._auraRingPreview = readRowsAsAuras(form);
         drawAuraRings(token);
+        const emptyNotice = root.querySelector(".shinys-aura-rings-empty");
         if (emptyNotice) emptyNotice.hidden = list.querySelectorAll(".aura-ring-row").length > 0;
       };
 
@@ -389,6 +393,10 @@ async function openAuraRingsDialog(token) {
       root.addEventListener("click", (ev) => {
         const removeBtn = ev.target.closest(".remove-ring");
         const addBtn = ev.target.closest("#shinys-add-ring");
+        if (!removeBtn && !addBtn) return;
+
+        const list = root.querySelector("#shinys-aura-rings-list");
+        if (!list) return;
 
         if (removeBtn) {
           // Stop the parent <summary> from also toggling open/closed.
@@ -408,8 +416,10 @@ async function openAuraRingsDialog(token) {
       root.addEventListener("input", updatePreview);
 
       // Initial preview matches the persisted state, so nothing visibly
-      // changes until the user actually edits something.
-      updatePreview();
+      // changes until the user actually edits something. Deferred one
+      // frame so the content is guaranteed to be attached by the time it
+      // runs; updatePreview's own guard makes this safe either way.
+      requestAnimationFrame(updatePreview);
 
       // However the dialog closes (Save, Cancel, Escape, the X button),
       // drop the preview override so refreshToken falls back to the real,
