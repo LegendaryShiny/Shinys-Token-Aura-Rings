@@ -3,16 +3,18 @@
  * A minimal, from-scratch replacement for the discontinued "Token Aura Rings"
  * module, rebuilt for Foundry VTT v14.
  *
- * v1.2.0
- * - Any number of rings per token (add/remove in the config dialog)
+ * v1.3.0
+ * - Any number of rings per token (add/remove in the config dialog), dialog
+ *   starts with zero rings until you click "Add Ring"
  * - Per ring: radius (scene distance units, measured from the token's edge
  *   outward), color, line width, line opacity, optional fill + fill opacity,
  *   GM-only visibility
  * - Configured via a button on the Token HUD (same extension point already
  *   used by Shiny's Custom Status Effects)
- * - Config dialog: collapsible ring cards laid out in a wrapping grid, a
- *   scrollable list so the Save/Cancel buttons stay reachable with many
- *   rings, and a live preview on the canvas while editing
+ * - Config dialog: collapsible ring cards laid out two per row in a fixed
+ *   width, bordered grid, a scrollable list so the Save/Cancel buttons stay
+ *   reachable with many rings, and a live preview on the canvas while
+ *   editing
  * - Rings are drawn as a child of the token's own PIXI container, so
  *   Foundry's normal visibility/fog-of-war handling for the token
  *   automatically applies to the rings too (no extra visibility logic
@@ -155,12 +157,14 @@ Hooks.on("renderTokenHUD", (hud, html) => {
 
 function ringRowTemplate(aura, label, units) {
   return `
-    <details class="aura-ring-row" open>
+    <details class="aura-ring-row">
       <summary>
-        <span class="ring-title">${label}</span>
-        <button type="button" class="remove-ring" title="Remove this ring">
-          <i class="fa-solid fa-trash"></i>
-        </button>
+        <div class="summary-row">
+          <span class="ring-title"><span class="chevron">&#9656;</span> ${label}</span>
+          <button type="button" class="remove-ring" title="Remove this ring">
+            <i class="fa-solid fa-trash"></i> Remove Ring
+          </button>
+        </div>
       </summary>
       <div class="ring-body">
         <div class="form-group">
@@ -216,8 +220,7 @@ function readRowsAsAuras(form) {
 }
 
 async function openAuraRingsDialog(token) {
-  const existing = getAuras(token.document);
-  const initial = existing.length ? existing : [foundry.utils.deepClone(DEFAULT_RING)];
+  const initial = getAuras(token.document);
   const units = canvas.scene?.grid?.units || "";
 
   let ringCount = initial.length;
@@ -233,12 +236,13 @@ async function openAuraRingsDialog(token) {
       <div id="shinys-aura-rings-list">
         ${initial.map((a, i) => ringRowTemplate(a, `Ring ${i + 1}`, units)).join("")}
       </div>
+      <p class="shinys-aura-rings-empty" ${initial.length ? 'hidden' : ''}>No rings yet, click "Add Ring" below.</p>
       <button type="button" id="shinys-add-ring"><i class="fa-solid fa-plus"></i> Add Ring</button>
     </form>
   `;
 
   await foundry.applications.api.DialogV2.wait({
-    window: { title: `Aura Rings: ${token.document.name}` },
+    window: { title: `Aura Rings: ${token.document.name}`, resizable: true },
     position: { width: 640 },
     content,
     render: (event, dialog) => {
@@ -246,10 +250,12 @@ async function openAuraRingsDialog(token) {
       const root = dialog.element;
       const form = root.querySelector(".shinys-aura-ring-form");
       const list = root.querySelector("#shinys-aura-rings-list");
+      const emptyNotice = root.querySelector(".shinys-aura-rings-empty");
 
       const updatePreview = () => {
         token._auraRingPreview = readRowsAsAuras(form);
         drawAuraRings(token);
+        if (emptyNotice) emptyNotice.hidden = list.querySelectorAll(".aura-ring-row").length > 0;
       };
 
       // Event delegation: handles both the initial rows and any rows

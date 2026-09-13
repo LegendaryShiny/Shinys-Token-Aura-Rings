@@ -3,48 +3,82 @@
   text-shadow: 0 0 8px #ff6400;
 }
 
+.shinys-aura-ring-form {
+  width: 600px;
+  max-width: 90vw;
+}
+
 .shinys-aura-ring-form #shinys-aura-rings-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   align-items: start;
   gap: 0.75em;
   max-height: 55vh;
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 4px 4px 4px 0;
   margin-bottom: 0.5em;
 }
 
+.shinys-aura-ring-form .shinys-aura-rings-empty {
+  text-align: center;
+  opacity: 0.7;
+  margin: 0.5em 0 1em;
+}
+
 .shinys-aura-ring-form .aura-ring-row {
-  border: 1px solid var(--color-border-light-tertiary, #782e22);
+  border: 1px solid var(--color-border-light-tertiary, #782e22) !important;
   border-radius: 4px;
+  background: rgba(0, 0, 0, 0.15);
   padding: 0 0.75em 0.5em;
 }
 
 .shinys-aura-ring-form .aura-ring-row summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.5em 0;
+}
+
+.shinys-aura-ring-form .aura-ring-row summary::-webkit-details-marker {
+  display: none;
+}
+
+.shinys-aura-ring-form .aura-ring-row .summary-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5em;
-  padding: 0.5em 0;
-  cursor: pointer;
   font-weight: bold;
 }
 
 .shinys-aura-ring-form .aura-ring-row .ring-title {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shinys-aura-ring-form .aura-ring-row .chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.shinys-aura-ring-form .aura-ring-row[open] .chevron {
+  transform: rotate(90deg);
 }
 
 .shinys-aura-ring-form .aura-ring-row .remove-ring {
   flex: 0 0 auto;
-  width: 1.8em;
-  height: 1.8em;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.35em;
+  padding: 0.3em 0.6em;
   background: rgba(120, 46, 34, 0.6);
   border: 1px solid var(--color-border-light-tertiary, #782e22);
   border-radius: 4px;
   cursor: pointer;
+  white-space: nowrap;
+  font-weight: normal;
 }
 
 .shinys-aura-ring-form .aura-ring-row .remove-ring:hover {
@@ -57,9 +91,10 @@
 
 .shinys-aura-ring-form .form-group {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1em;
+  gap: 0.75em;
   margin-bottom: 0.4em;
 }
 
